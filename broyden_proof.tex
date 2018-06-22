@@ -1,0 +1,96 @@
+\documentclass{article}
+
+\usepackage[numbers]{natbib}
+
+\usepackage{graphicx}
+
+% use Times fonts if available on your TeX system
+\usepackage{mathptmx}
+
+% insert here the call for the packages your document requires
+\usepackage{hyperref}
+\usepackage{fixltx2e}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=blue,
+    urlcolor=blue,
+    citecolor=blue
+}
+
+\urlstyle{same}
+
+\usepackage{bm}
+\usepackage{gensymb}
+\usepackage{amsmath}
+\usepackage{amstext}
+\usepackage{commath}
+
+\usepackage{listings}
+\usepackage[svgnames]{xcolor}
+\lstset{language=Python,
+  basicstyle=\small,
+  keywordstyle=\color{DodgerBlue}\ttfamily,
+  identifierstyle=\color{black}\ttfamily,
+  commentstyle=\color{FireBrick}\bfseries\ttfamily,
+  stringstyle=\color{OliveDrab}\ttfamily}
+
+\usepackage{soul}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+
+\soulregister\cite7
+\soulregister\ref7
+\soulregister\pageref7
+
+\DeclareMathAlphabet{\mathcal}{OMS}{cmsy}{m}{n}
+\newcommand\p{\partial}
+\newcommand\Y{\mathcal{Y}}
+\newcommand\R{\mathcal{R}}
+\newcommand\F{\mathcal{F}}
+
+\begin{document}
+
+\section{Broyden's Second Method}
+
+Broyden update to the approximation of the inverse Jacobian:
+
+\begin{equation}
+  J_n^{-1} = J_{n-1}^{-1} + \frac{\Delta x_n - J_{n-1}^{-1} \Delta r_{n-1}}{\| \Delta r_{n-1}^2 \|} \Delta r_{n-1}^T
+\end{equation}
+
+Quasi-Newton step with updated Jacobian.
+
+\begin{equation}
+  \Delta x_n \cong J_n^{-1} \Delta r_n = J_n^{-1} r_n  \label{eq:newton_update}
+\end{equation}
+
+\section{Model Structure}
+
+The model consists of some number of implicit relationships whose states are to be solved. We split this into two subproblems with
+states $x$ and $y$ that satisfy the residual equations $r_1$ and $r_2$.
+
+\begin{equation}
+  r_1 = F(x, y)  \label{eq:outer_eq}
+\end{equation}
+\begin{equation}
+  r_2 = G(x, y)  \label{eq:inner_eq}
+\end{equation}
+
+The model also has two solvers: an outer solver that drives the full solution, and an inner solver that reconverges each
+iteration of the outer solver. The inner solver will always take residual equation $r_2$ and solve for $y$.
+
+\section{Recursive Broyden}
+
+In the recursive solution strategy, the inner solver converges $r_2$ and solves for $y$, while the outer solver converges
+$r_1$ and solves for $x$.  It has no knowledge of $y$.
+
+To apply Broyden's method to the outer system, we need to differentiate equation~\eqref{eq:outer_eq} with respect to $x$.
+
+\begin{equation}
+  dr_1 = \frac{\partial F}{\partial x} dx + \frac{\partial F}{\partial y} \frac{dy}{dx} dx
+\end{equation}
+
+\section{Hierarchical Broyden}
+
+\end{document}
