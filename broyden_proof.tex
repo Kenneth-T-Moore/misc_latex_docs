@@ -56,13 +56,12 @@
 Broyden update to the approximation of the inverse Jacobian:
 
 \begin{equation}
-  J_n^{-1} = J_{n-1}^{-1} + \frac{\Delta x_n - J_{n-1}^{-1} \Delta r_{n-1}}{\| \Delta r_{n-1}^2 \|} \Delta r_{n-1}^T
+  J_n^{-1} = J_{n-1}^{-1} + \frac{\Delta x_n - J_{n-1}^{-1} \Delta r_n}{\| \Delta r_{n}^2 \|} \Delta r_{n}^T   \label{eq:broyden}
 \end{equation}
-
 Quasi-Newton step with updated Jacobian.
 
 \begin{equation}
-  \Delta x_n \cong J_n^{-1} \Delta r_n = J_n^{-1} r_n  \label{eq:newton_update}
+  \Delta x_n \cong J_n^{-1} \Delta r_n = J_n^{-1} (0 - r_n) = -J_n^{-1} r_n  \label{eq:newton_update}
 \end{equation}
 
 \section{Model Structure}
@@ -76,7 +75,6 @@ states $x$ and $y$ that satisfy the residual equations $r_1$ and $r_2$.
 \begin{equation}
   r_2 = G(x, y)  \label{eq:inner_eq}
 \end{equation}
-
 The model also has two solvers: an outer solver that drives the full solution, and an inner solver that reconverges each
 iteration of the outer solver. The inner solver will always take residual equation $r_2$ and solve for $y$.
 
@@ -88,9 +86,213 @@ $r_1$ and solves for $x$.  It has no knowledge of $y$.
 To apply Broyden's method to the outer system, we need to differentiate equation~\eqref{eq:outer_eq} with respect to $x$.
 
 \begin{equation}
-  dr_1 = \frac{\partial F}{\partial x} dx + \frac{\partial F}{\partial y} \frac{dy}{dx} dx
+  dr_1 = \frac{\partial F}{\partial x} dx + \frac{\partial F}{\partial y} \frac{dy}{dx} dx  \label{eq:deriv_outer}
+\end{equation}
+To get the derivative of $y$ with respect to $x$, we need to also differentiate the inner solver. The underlying assumption is that the
+inner solver is fully converged, so that the residual $r_2$ is zero.
+
+\begin{equation}
+  dr_2 = \frac{\partial G}{\partial x} dx + \frac{\partial G}{\partial y} \frac{dy}{dx} dy = 0
+\end{equation}
+\begin{equation}
+  \frac{dy}{dx} = {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x}
+\end{equation}
+Substituting back into equation~\eqref{eq:deriv_outer} gives us:
+
+\begin{equation}
+  dr_1 = \frac{\partial F}{\partial x} dx + \frac{\partial F}{\partial y} {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} dx
+\end{equation}
+\begin{equation}
+  \frac{dy}{dr_1} = \left[ \frac{\partial F}{\partial x} + \frac{\partial F}{\partial y} {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \right]^{-1}
+\end{equation}
+To clean things up, and since this term will appear again, we define:
+
+\begin{equation}
+  \beta = \left[ \frac{\partial F}{\partial x} + \frac{\partial F}{\partial y} {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \right]^{-1} \label{eq:beta}
+\end{equation}
+Now we can substitute into equation~\eqref{eq:broyden} to calculate the Broyden update to the inverse Jacobian for this case, where the inverse Jacobian is just the
+derivative of $y$ with respect to $r_1$.
+
+\begin{equation}
+  J_n^{-1} = \beta + \frac{\Delta x - \beta \Delta r_{1}}{\Delta r_{1}^2 } \Delta r_{1}^T
+\end{equation}
+Finally, if we plug this into into equation~\eqref{eq:newton_update}, we get the commanded update to the state value.
+
+\begin{equation}
+  \Delta x_n \cong  -(\beta + \frac{\Delta x - \beta \Delta r_{1}}{\Delta r_{1}^2 } \Delta r_{1}^T )r_{1} \label{eq:recursive_final}
 \end{equation}
 
+
 \section{Hierarchical Broyden}
+
+In the hierarchical solution strategy, the inner solver converges $r_2$ and solves for $y$ as before, however the outer solver sees both residuals
+$r_1$ and $r_2$ (which gets converged to zero by the subsolver). The outer solver also can set $y$, and while the inner solver may use that as an initial
+guess, it finds its own solution for $y$.
+
+To apply Broyden's method to the hierarchical problem, we need to differentiate both equation~\eqref{eq:outer_eq} and equation~\eqref{eq:inner_eq} with respect
+to $x$ and $r$. The Jacobian is just:
+
+\begin{equation}
+  J_{n-1} =
+  \begin{bmatrix}
+     \frac{\partial F}{\partial x}  &  \frac{\partial F}{\partial y} \\
+     \frac{\partial G}{\partial x}  &  \frac{\partial G}{\partial y}
+  \end{bmatrix}
+\end{equation}
+We need the inverse Jacobian, so we use the closed form solution for the block inverse of a two by two matrix.
+
+\begin{equation}
+  J_{n-1} =
+  \begin{bmatrix}
+    \left[ \frac{\partial F}{\partial x} + \frac{\partial F}{\partial y} {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \right]^{-1} &
+    - {\frac{\partial F}{\partial x}}^{-1} \frac{\partial F}{\partial y} \left[ \frac{\partial G}{\partial y} + \frac{\partial G}{\partial x} {\frac{\partial F}{\partial x}}^{-1} \frac{\partial F}{\partial y} \right]^{-1} \\
+    - {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \left[ \frac{\partial F}{\partial x} + \frac{\partial F}{\partial y} {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \right]^{-1} &
+    \left[ \frac{\partial G}{\partial y} + \frac{\partial G}{\partial x} {\frac{\partial F}{\partial x}}^{-1} \frac{\partial F}{\partial y} \right]^{-1}
+  \end{bmatrix}
+\end{equation}
+We can simplify this a litle by substituting in equation~\eqref{eq:beta}
+
+\begin{equation}
+  J_{n-1} =
+  \begin{bmatrix}
+    \beta &
+    - {\frac{\partial F}{\partial x}}^{-1} \frac{\partial F}{\partial y} \left[ \frac{\partial G}{\partial y} + \frac{\partial G}{\partial x} {\frac{\partial F}{\partial x}}^{-1} \frac{\partial F}{\partial y} \right]^{-1} \\
+    - {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \beta &
+    \left[ \frac{\partial G}{\partial y} + \frac{\partial G}{\partial x} {\frac{\partial F}{\partial x}}^{-1} \frac{\partial F}{\partial y} \right]^{-1}
+  \end{bmatrix}
+\end{equation}
+We can define one more term to make this simpler:
+
+\begin{equation}
+  \gamma = \left[ \frac{\partial G}{\partial y} + \frac{\partial G}{\partial x} {\frac{\partial F}{\partial x}}^{-1} \frac{\partial F}{\partial y} \right]^{-1}
+\end{equation}
+
+\begin{equation}
+  J_{n-1} =
+  \begin{bmatrix}
+    \beta &
+    - {\frac{\partial F}{\partial x}}^{-1} \frac{\partial F}{\partial y} \gamma \\
+    - {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \beta &
+    \gamma
+  \end{bmatrix}
+\end{equation}
+We now have the inverse Jacobian we need for equation~\eqref{eq:broyden}, but now we need to expand the state and residual vectors.
+
+\begin{equation}
+  \Delta r_n = {
+  \begin{bmatrix}
+    \Delta r_1 \\
+    0
+  \end{bmatrix}
+  }_n
+\end{equation}
+\begin{equation}
+  \Delta r_n = {
+  \begin{bmatrix}
+    \Delta x \\
+    \Delta y
+  \end{bmatrix}
+  }_n
+\end{equation}
+The residual for state $y$ as seen by the outer solver is zero because the inner solver converged the inner equation. Now, let's build up
+equation~\eqref{eq:broyden} one step at a time to see each matrix multiplication.
+
+\begin{equation}
+  J_{n-1}^{-1} \Delta r_n = J_{n-1}^{-1} {
+  \begin{bmatrix}
+    \Delta r_1 \\
+    0
+  \end{bmatrix}
+  }_n =
+  \begin{bmatrix}
+    \beta \\
+    - {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \beta
+  \end{bmatrix}
+\end{equation}
+Since the residual $r_2$ is zero:
+
+\begin{equation}
+  \| \Delta r_{n}^2 \| = \Delta r_{1}^2
+\end{equation}
+Putting it all together, we get:
+
+\begin{equation}
+  J_n^{-1} =
+  \begin{bmatrix}
+    \beta &
+    - {\frac{\partial F}{\partial x}}^{-1} \frac{\partial F}{\partial y} \gamma \\
+    - {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \beta &
+    \gamma
+  \end{bmatrix}
+  +
+  \frac{
+  \begin{bmatrix}
+    \Delta x \\
+    \Delta y
+  \end{bmatrix}
+   -
+  \begin{bmatrix}
+    \beta \\
+    - {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \beta
+  \end{bmatrix}
+  }{\Delta r_{1}^2}
+  \begin{bmatrix}
+    \Delta r_{1}^T &
+    0
+  \end{bmatrix}
+\end{equation}
+Performing the outer product, and reducing gives:
+
+\begin{equation}
+  \Delta J_n^{-1} =
+  \begin{bmatrix}
+    \beta + \frac{\Delta x - \beta \Delta r_{1}}{\Delta r_{1}^2 } \Delta r_{1}^T &
+    {\frac{\partial F}{\partial x}}^{-1} \frac{\partial F}{\partial y} \gamma \\
+    {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \beta \frac{\Delta x - {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \beta \Delta r_{1}}{\Delta r_{1}^2 } \Delta r_{1}^T  &
+    \gamma
+  \end{bmatrix}
+\end{equation}
+Now we plug this into into equation~\eqref{eq:newton_update}, to get the commanded update to the state value.
+
+\begin{equation}
+  {
+  \begin{bmatrix}
+    \Delta x \\
+    \Delta y
+  \end{bmatrix}
+  }_n \cong -
+  \begin{bmatrix}
+    \beta + \frac{\Delta x - \beta \Delta r_{1}}{\Delta r_{1}^2 } \Delta r_{1}^T &
+    {\frac{\partial F}{\partial x}}^{-1} \frac{\partial F}{\partial y} \gamma \\
+    {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \beta + \frac{\Delta y - {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \beta \Delta r_{1}}{\Delta r_{1}^2 } \Delta r_{1}^T  &
+    \gamma
+  \end{bmatrix}
+  {
+  \begin{bmatrix}
+    r_1 \\
+    0
+  \end{bmatrix}
+  }_n
+\end{equation}
+
+\begin{equation}
+  {
+  \begin{bmatrix}
+    \Delta x \\
+    \Delta y
+  \end{bmatrix}
+  }_n \cong -
+  \begin{bmatrix}
+    (\beta + \frac{\Delta x - \beta \Delta r_{1}}{\Delta r_{1}^2 } \Delta r_{1}^T) r_1 \\
+    ({\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \beta + \frac{\Delta y - {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \beta \Delta r_{1}}{\Delta r_{1}^2 } \Delta r_{1}^T) r_1
+  \end{bmatrix}
+\end{equation}
+Finally, we can pull out the Broyden updated $\Delta x$:
+
+\begin{equation}
+  \Delta x_n \cong  -(\beta + \frac{\Delta x - \beta \Delta r_{1}}{\Delta r_{1}^2 } \Delta r_{1}^T )r_{1} \label{eq:hier_final}
+\end{equation}
+This matches the result from Recursive Broyden in equation~\eqref{eq:recursive_final} We also end up with an update to $y$, but the subsolver overrides this by solving that
+subsystem.
 
 \end{document}
