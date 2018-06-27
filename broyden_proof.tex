@@ -142,7 +142,7 @@ to $x$ and $r$. The Jacobian is just:
 We need the inverse Jacobian, so we use the closed form solution for the block inverse of a two by two matrix.
 
 \begin{equation}
-  J_{n-1} =
+  J_{n-1}^{-1} =
   \begin{bmatrix}
     \left[ \frac{\partial F}{\partial x} + \frac{\partial F}{\partial y} {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \right]^{-1} &
     - {\frac{\partial F}{\partial x}}^{-1} \frac{\partial F}{\partial y} \left[ \frac{\partial G}{\partial y} + \frac{\partial G}{\partial x} {\frac{\partial F}{\partial x}}^{-1} \frac{\partial F}{\partial y} \right]^{-1} \\
@@ -153,7 +153,7 @@ We need the inverse Jacobian, so we use the closed form solution for the block i
 We can simplify this a litle by substituting in equation~\eqref{eq:beta}
 
 \begin{equation}
-  J_{n-1} =
+  J_{n-1}^{-1} =
   \begin{bmatrix}
     \beta &
     - {\frac{\partial F}{\partial x}}^{-1} \frac{\partial F}{\partial y} \left[ \frac{\partial G}{\partial y} + \frac{\partial G}{\partial x} {\frac{\partial F}{\partial x}}^{-1} \frac{\partial F}{\partial y} \right]^{-1} \\
@@ -168,7 +168,7 @@ We can define one more term to make this simpler:
 \end{equation}
 
 \begin{equation}
-  J_{n-1} =
+  J_{n-1}^{-1}   =
   \begin{bmatrix}
     \beta &
     - {\frac{\partial F}{\partial x}}^{-1} \frac{\partial F}{\partial y} \gamma \\
@@ -205,8 +205,8 @@ equation~\eqref{eq:broyden} one step at a time to see each matrix multiplication
   \end{bmatrix}
   }_n =
   \begin{bmatrix}
-    \beta \\
-    - {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \beta
+    \beta \Delta r_1 \\
+    - {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \beta \Delta r_1
   \end{bmatrix}
 \end{equation}
 Since the residual $r_2$ is zero:
@@ -232,8 +232,8 @@ Putting it all together, we get:
   \end{bmatrix}
    -
   \begin{bmatrix}
-    \beta \\
-    - {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \beta
+    \beta \Delta r_1 \\
+    - {\frac{\partial G}{\partial y}}^{-1} \frac{\partial G}{\partial x} \beta \Delta r_1
   \end{bmatrix}
   }{\Delta r_{1}^2}
   \begin{bmatrix}
